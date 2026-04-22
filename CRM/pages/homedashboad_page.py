@@ -1,3 +1,7 @@
+import re
+from tkinter import Listbox
+from tkinter.constants import SEL_LAST
+
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -29,6 +33,23 @@ class HomeDashboardPage:
         self.ok_btn = (By.XPATH, "//button[contains(text(),'OK') or contains(text(),'Ok')]")
         self.modal_overlay = (By.CLASS_NAME, "modal-overlay")
 
+        self.total_clients = (By.XPATH,"//div[contains(@class,'stats-grid')]//div[1]//div[2]")
+        self.toast =(By.XPATH,"//div[@class='snackbar-item success animate-slide-in']")
+
+        self.loader = (By.CLASS_NAME,"loading-spinner")
+    #     sync-overlay
+        self.document_count = (By.XPATH,"//div[contains(@class,'stats-grid')]//div[2]//div[2]")
+
+        self.global_search = (By.XPATH,"//input[@placeholder='Quick search: PAN, Client, or File Name...']")
+        self.search_result = (By.XPATH,"//div[@class='search-results-dropdown glass-panel animate-fade-in']")
+
+        self.navigation_bar = (By.XPATH,"//header[@class='top-header glass-panel']//button[@class='icon-btn mobile-toggle']//*[name()='svg']")
+        self.nav_item = (By.XPATH,"//nav[@class='sidebar-nav']")
+
+        self.whatsapp_link = (By.XPATH,"//a[@class='nav-item ' and @href='/whatsapp-link']")
+
+
+
     def click_homedashboard(self):
         self.handle_popup()
         home_db = (self.wait.until(EC.visibility_of_element_located(self.home_db_btn)))
@@ -54,7 +75,7 @@ class HomeDashboardPage:
         self.wait.until(EC.visibility_of_element_located(self.client_name)).send_keys(clientname)
         self.wait.until(EC.visibility_of_element_located(self.pan_num)).send_keys(pan_no)
         self.wait.until(EC.visibility_of_element_located(self.email_address)).send_keys(email)
-        self.wait.until(EC.visibility_of_element_located(self.wtsp_num)).send_keys(whstapp_no)
+        self.wait.until(EC.visibility_of_element_located(self.wtsp_num)).send_keys(str(whstapp_no))
         self.wait.until(EC.visibility_of_element_located(self.wtsp_group)).send_keys(whstapp_grp)
         self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         self.wait.until(EC.element_to_be_clickable(self.add_client)).click()
@@ -89,6 +110,82 @@ class HomeDashboardPage:
                 )
         except Exception as e:
             print("Popup not handled:", e)
+
+    def get_total_clients(self):
+        count = self.wait.until(EC.visibility_of_element_located(self.total_clients)).text.strip()
+        number = int(re.search(r"\d+", count).group())
+        return number
+
+    def get_table_row_count(self):
+        rows = self.driver.find_elements(By.XPATH, "//table//tbody/tr")
+        return len(rows)
+
+        # CLICK SYNC + WAIT
+
+    def click_sync_gmail(self):
+        self.wait.until(EC.element_to_be_clickable(self.sync_gmail)).click()
+
+        # Wait for loader (if appears)
+        try:
+            self.wait.until(EC.presence_of_element_located(self.loader))
+            self.wait.until(EC.invisibility_of_element_located(self.loader))
+        except:
+            print("Loader not found, continuing...")
+
+        # GET ALERT MESSAGE
+
+    def get_sync_message(self):
+        alert = self.wait.until(EC.alert_is_present())
+        msg = alert.text
+        alert.accept()
+        return msg
+
+
+        # EXTRACT ATTACHMENT COUNT
+
+    def extract_attachment_count(self, msg):
+        match = re.search(r"\d+", msg)
+        return int(match.group()) if match else 0
+
+
+        # GET DOCUMENT COUNT
+
+    def get_documents_count(self):
+        return self.wait.until(
+            EC.visibility_of_element_located(self.document_count)
+        ).text.strip()
+
+    def search_and_validate(self,keyword):
+        search = self.wait.until(EC.visibility_of_element_located(self.global_search))
+        search.clear()
+        search.send_keys(keyword)
+        self.driver.implicitly_wait(5)
+        result = self.wait.until(EC.presence_of_element_located(self.search_result))
+        text = result.text.strip().lower()
+        keyword = keyword.lower()
+        if keyword in text:
+            print(" Client found:",text)
+            return True
+        else:
+            print("No client found:",text)
+            return False
+
+    def click_navbar(self):
+        nav = self.wait.until(EC.presence_of_element_located(self.navigation_bar))
+        nav.click()
+
+    def check_nav_item(self):
+        items = self.driver.find_elements(*self.nav_item)
+        nav_list = []
+        for item in items:
+            text = item.text.strip()
+            if text:
+                nav_list.extend(text.split("\n"))
+        return nav_list
+
+
+
+
 
 
         
